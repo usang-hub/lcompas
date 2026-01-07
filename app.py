@@ -7,31 +7,28 @@ from datetime import datetime, timedelta
 # 1. 페이지 설정
 st.set_page_config(page_title="나만의 AI 비서", page_icon="🤖", layout="wide")
 
-# 2. [핵심] 대한민국 전 종목 리스트 가져오기 (캐싱으로 속도 최적화)
-# 이 함수는 앱이 처음 켜질 때 한 번만 실행되어 2,800개 리스트를 가져옵니다.
+# 2. [주식] 전 종목 리스트 가져오기 (캐싱)
 @st.cache_data
 def get_all_stock_list():
     try:
-        # 한국거래소(KRX)의 모든 종목(코스피+코스닥+코넥스) 불러오기
         df = fdr.StockListing('KRX')
-        # 사용하기 편하게 "종목명 (코드)" 형태로 리스트를 만듦
-        # 예: "삼성전자 (005930)"
         df['Display'] = df['Name'] + " (" + df['Code'] + ")"
         return df
-    except Exception as e:
+    except:
         return pd.DataFrame()
 
 # --- 사이드바 ---
 with st.sidebar:
     st.title("🤖 AI 비서실")
-    menu = st.radio("기능 선택", ["🧭 인생 나침반", "💰 만능 자산 비서"], index=1)
+    
+    # 메뉴가 3개로 늘어났습니다!
+    menu = st.radio("기능 선택", 
+        ["🧭 인생 나침반 (고민)", "💰 만능 자산 비서 (주식)", "🥠 신년 운세 (사주)"], 
+        index=2 # 기본으로 운세가 먼저 뜨게 설정 (자랑하기 좋게)
+    )
     st.markdown("---")
     
-    selected_model = st.selectbox(
-        "사용 모델", 
-        ["gemini-2.0-flash-exp", "gemini-1.5-flash"], 
-        index=0
-    )
+    selected_model = st.selectbox("사용 모델", ["gemini-2.0-flash-exp", "gemini-1.5-flash"], index=0)
     
     if "GOOGLE_API_KEY" in st.secrets:
         st.success("시스템 정상 가동 중 ✅")
@@ -48,119 +45,127 @@ except:
 # =========================================================
 # 기능 1: 인생 나침반
 # =========================================================
-if menu == "🧭 인생 나침반":
+if "인생 나침반" in menu:
     st.title("🧭 인생 나침반")
+    st.subheader("70년 인생의 지혜로 답해드립니다.")
     worry = st.text_area("고민을 털어놓으세요", height=150)
     if st.button("조언 듣기") and worry:
         model = genai.GenerativeModel(selected_model)
         with st.spinner("생각 중..."):
-            res = model.generate_content(f"70대 멘토로서 답변: {worry}")
+            res = model.generate_content(f"70대 멘토로서 정중하고 지혜롭게 답변해주세요: {worry}")
             st.write(res.text)
 
 # =========================================================
-# 기능 2: 만능 자산 비서 (전 종목 검색 기능 탑재)
+# 기능 2: 만능 자산 비서
 # =========================================================
-elif menu == "💰 만능 자산 비서":
+elif "만능 자산 비서" in menu:
     st.title("💰 만능 투자 분석 비서")
-    st.info("이제 대한민국 모든 주식(2,800여 개)을 검색할 수 있습니다.")
     
     col1, col2 = st.columns([1, 2])
-
     with col1:
         st.subheader("🔍 종목 검색")
-        
-        # 1. 전 종목 리스트 불러오기
-        with st.spinner("전국 주식 명부를 가져오는 중... (잠시만 기다려주세요)"):
-            stock_df = get_all_stock_list()
+        stock_df = get_all_stock_list()
         
         if stock_df.empty:
-            st.error("종목 정보를 가져오지 못했습니다. 새로고침 해주세요.")
-            final_code = ""
-            selected_name = ""
+            st.error("종목 정보를 가져오지 못했습니다.")
+            selected_name, final_code = "", ""
         else:
-            # 2. 검색 가능한 선택 상자 (Selectbox) 만들기
-            # 사용자가 "삼"만 쳐도 삼성 관련주가 주르륵 나옵니다.
             stock_list = stock_df['Display'].tolist()
-            
-            # 기본값으로 삼성전자를 미리 선택해둠
-            default_index = stock_list.index("삼성전자 (005930)") if "삼성전자 (005930)" in stock_list else 0
-            
-            selected_item = st.selectbox(
-                "분석할 종목을 선택하거나 검색하세요 👇", 
-                stock_list, 
-                index=default_index
-            )
-            
-            # 선택된 값에서 코드와 이름 분리하기
-            # "삼성전자 (005930)" -> 이름: 삼성전자, 코드: 005930
+            # 기본값 설정
+            default_idx = stock_list.index("삼성전자 (005930)") if "삼성전자 (005930)" in stock_list else 0
+            selected_item = st.selectbox("종목 선택/검색", stock_list, index=default_idx)
             selected_name = selected_item.split(' (')[0]
             final_code = selected_item.split('(')[-1].replace(')', '')
 
-        # 해외 주식/코인 입력 기능 (옵션)
-        st.markdown("---")
-        with st.expander("🇺🇸 미국 주식 / 🪙 코인 직접 입력"):
-            manual_code = st.text_input("티커 입력 (예: TSLA, BTC/KRW)", placeholder="")
-            if manual_code:
-                final_code = manual_code
-                selected_name = manual_code
+        with st.expander("🇺🇸 미국 주식 / 🪙 코인 입력"):
+            manual = st.text_input("티커 입력 (예: TSLA, BTC/KRW)")
+            if manual:
+                final_code = manual
+                selected_name = manual
 
-        analyze_btn = st.button("차트 및 AI 분석 실행 🚀")
+        btn = st.button("분석 실행 🚀")
 
     with col2:
-        if analyze_btn:
+        if btn:
             try:
-                with st.spinner(f"'{selected_name}' 데이터를 분석 중입니다..."):
-                    # 데이터 가져오기 (최근 120일)
-                    df = fdr.DataReader(final_code, datetime.now() - timedelta(days=120))
-                    
+                with st.spinner(f"'{selected_name}' 분석 중..."):
+                    df = fdr.DataReader(final_code, datetime.now() - timedelta(days=100))
                     if df.empty:
-                        st.error(f"❌ 데이터가 없습니다. ({final_code})")
-                        st.caption("상장 폐지되었거나 코드가 잘못되었습니다.")
+                        st.error("데이터가 없습니다.")
                     else:
-                        latest_close = df.iloc[-1]['Close']
-                        latest_date = df.index[-1].strftime('%Y-%m-%d')
-                        
-                        st.subheader(f"📈 {selected_name} 주가 차트")
+                        cur_price = df.iloc[-1]['Close']
+                        st.subheader(f"{selected_name} 주가 차트")
                         st.line_chart(df['Close'])
+                        st.metric("현재가", f"{cur_price:,.0f}")
                         
-                        # 깔끔한 지표 표시
-                        c1, c2, c3 = st.columns(3)
-                        c1.metric("기준일", latest_date)
-                        c2.metric("현재가", f"{latest_close:,.0f}")
-                        
-                        # 등락폭 계산 (전일 대비)
-                        if len(df) > 1:
-                            prev_close = df.iloc[-2]['Close']
-                            diff = latest_close - prev_close
-                            diff_pct = (diff / prev_close) * 100
-                            c3.metric("전일 대비", f"{diff:,.0f}", f"{diff_pct:.2f}%")
-
-                        # AI 분석
                         model = genai.GenerativeModel(selected_model)
                         st.markdown("---")
-                        st.subheader("🤖 Gemini 투자 리포트")
-                        
-                        with st.spinner("AI가 재무제표와 차트를 분석하고 있습니다..."):
-                            data_text = df.tail(15).to_string()
-                            prompt = f"""
-                            당신은 냉철한 20년 경력의 펀드매니저입니다.
-                            '{selected_name}' ({final_code}) 종목의 최근 주가 흐름을 분석해 주세요.
-                            
-                            [최근 15일 주가 데이터]
-                            {data_text}
-                            
-                            다음 형식으로 보고서를 작성해 주세요:
-                            1. **현재 추세 진단**: 상승세인지, 하락세인지, 횡보 중인지 명확히 판별
-                            2. **주요 포인트**: 차트상 지지선이나 저항선, 혹은 특이사항
-                            3. **투자자 행동 가이드**: 
-                               - 보유자: (홀딩/매도/추가매수)
-                               - 신규 진입: (진입 추천/관망/진입 금지)
-                            
-                            결론은 명확하고 직설적으로 말해주세요.
-                            """
-                            res = model.generate_content(prompt)
-                            st.write(res.text)
-
+                        prompt = f"""
+                        당신은 전문 애널리스트입니다. '{selected_name}'의 최근 100일 차트 데이터를 보고
+                        추세(상승/하락)와 투자 전략(매수/매도/관망)을 명확히 조언해주세요.
+                        데이터: {df.tail(10).to_string()}
+                        """
+                        res = model.generate_content(prompt)
+                        st.write(res.text)
             except Exception as e:
-                st.error("일시적인 오류가 발생했습니다.")
-                st.write(e)
+                st.error(f"오류: {e}")
+
+# =========================================================
+# 기능 3: 신년 운세 (대박 기능 추가!)
+# =========================================================
+elif "신년 운세" in menu:
+    st.title("🥠 AI 사주 명리학자")
+    st.info("당신의 생년월일을 입력하면, AI가 사주팔자를 분석해 드립니다.")
+
+    col1, col2 = st.columns([1, 1])
+
+    with col1:
+        st.subheader("📝 사주 정보 입력")
+        
+        # 날짜 입력
+        birth_date = st.date_input("생년월일", min_value=datetime(1940, 1, 1), max_value=datetime(2025, 12, 31))
+        
+        # 시간 입력
+        birth_time = st.time_input("태어난 시간")
+        
+        # 성별 및 양/음력
+        gender = st.radio("성별", ["남성", "여성"], horizontal=True)
+        calendar_type = st.radio("양력/음력", ["양력", "음력"], horizontal=True)
+        
+        saju_btn = st.button("2026년 운세 보기 ✨")
+
+    with col2:
+        if saju_btn:
+            model = genai.GenerativeModel(selected_model)
+            with st.spinner("📜 만세력을 펼치고 운명을 분석하는 중입니다..."):
+                try:
+                    # AI에게 '도사' 페르소나 부여
+                    prompt = f"""
+                    당신은 조선 최고의 사주 명리학자이자 도사입니다.
+                    아래 정보를 가진 사람의 사주와 2026년(병오년) 신년 운세를 봐주세요.
+                    
+                    [사용자 정보]
+                    - 생년월일: {birth_date.strftime('%Y년 %m월 %d일')}
+                    - 태어난 시간: {birth_time.strftime('%H시 %M분')}
+                    - 성별: {gender}
+                    - 양/음력: {calendar_type}
+                    
+                    [요청 사항]
+                    1. **타고난 기질**: 이 사람은 어떤 성향(오행)을 타고났는지 설명해주세요.
+                    2. **2026년 총운**: 올해 전반적인 흐름이 어떤지 설명해주세요.
+                    3. **재물운 & 직업운**: 돈과 일에 관련된 운세를 구체적으로.
+                    4. **건강 & 연애운**: 조심해야 할 점이나 좋은 인연.
+                    5. **행운의 조언**: 마음가짐이나 행운의 색/숫자 등.
+                    
+                    말투는 신비롭지만 친절하게("~하게나", "~보이는군" 등) 해주세요.
+                    """
+                    
+                    res = model.generate_content(prompt)
+                    
+                    st.success("분석이 완료되었습니다!")
+                    st.markdown("### 📜 2026년 운세 풀이")
+                    st.write(res.text)
+                    st.caption("※ 재미로 보는 AI 운세입니다.")
+                    
+                except Exception as e:
+                    st.error(f"운세를 보는 중 기운이 막혔습니다: {e}")
