@@ -8,41 +8,44 @@ from korean_lunar_calendar import KoreanLunarCalendar
 # 1. 페이지 설정
 st.set_page_config(page_title="나만의 AI 비서", page_icon="🤖", layout="wide")
 
-# 2. [수정됨] 만세력(사주) 계산 함수 (에러 방지 안전 코드 적용)
+# 2. [수정됨] 만세력(사주) 계산 함수 (60갑자 로직 완벽 수정)
 def get_ganji(year, month, day, hour_str, is_lunar=False):
     calendar = KoreanLunarCalendar()
     
-    # 1. 음력이면 양력으로 변환
+    # 1. 음력 -> 양력 변환
     if is_lunar:
-        # 음력 날짜 설정
         calendar.setLunarDate(year, month, day, False)
-        # [수정] 안전하게 연/월/일 숫자를 직접 가져옴 (에러 해결!)
         solar_date = datetime(calendar.solarYear, calendar.solarMonth, calendar.solarDay)
     else:
         solar_date = datetime(year, month, day)
     
-    # 2. 60갑자 리스트
+    # 2. [핵심 수정] 60갑자 리스트 제대로 생성 (순서대로 매칭)
     gan = list("갑을병정무기경신임계")
     ji = list("자축인묘진사오미신유술해")
-    ganji_list = [g + j for g in gan for j in ji]
+    # 0번: 갑자, 1번: 을축 ... 59번: 계해 (정확히 60개만 생성)
+    ganji_list = [gan[i % 10] + ji[i % 12] for i in range(60)]
 
-    # 3. 년주 (Year Pillar) - 입춘(2월 4일) 기준
+    # 3. 년주 (Year Pillar) - 1924년(갑자년) 기준
+    # 입춘(2월 4일) 이전이면 전년도로 간주
     if solar_date.month < 2 or (solar_date.month == 2 and solar_date.day < 4):
         year_val = year - 1
     else:
         year_val = year
     
-    # 1924년 = 갑자년 기준
+    # (연도 - 1924) % 60 -> 인덱스 추출
+    # 예: 1949 - 1924 = 25 -> ganji_list[25] = 기(5)축(1) -> 기축년 Correct!
     year_idx = (year_val - 1924) % 60
     year_ganji = ganji_list[year_idx]
 
-    # 4. 일주 (Day Pillar)
-    base_date = datetime(1900, 1, 1)
+    # 4. 일주 (Day Pillar) - 1900년 1월 1일(갑술일) 기준
+    base_date = datetime(1900, 1, 1) # 갑술일 (인덱스 10번)
     days_diff = (solar_date - base_date).days
+    
+    # (차이 일수 + 기준일 인덱스 10) % 60
     day_idx = (days_diff + 10) % 60
     day_ganji = ganji_list[day_idx]
 
-    return f"{year_ganji}년 (??)월 {day_ganji}일", solar_date.strftime("%Y년 %m월 %d일")
+    return f"{year_ganji}년 (생략)월 {day_ganji}일", solar_date.strftime("%Y년 %m월 %d일")
 
 # 3. [주식] 종목 리스트 캐싱
 @st.cache_data
@@ -117,7 +120,7 @@ elif "만능 자산 비서" in menu:
                 st.error("데이터 조회 실패")
 
 # =========================================================
-# 기능 3: 정통 사주 운세 (수학적 계산 탑재)
+# 기능 3: 정통 사주 운세 (버그 수정판)
 # =========================================================
 elif "정통 사주 운세" in menu:
     st.title("🥠 AI 정통 사주 명리학")
@@ -128,7 +131,7 @@ elif "정통 사주 운세" in menu:
     with col1:
         st.subheader("📝 내 정보 입력")
         
-        # 년/월/일 입력 (기본값: 선생님 생신)
+        # 년/월/일 입력 (선생님 생신 기본값)
         birth_date = st.date_input("생년월일", value=datetime(1949, 1, 23), min_value=datetime(1930, 1, 1))
         
         # 음력/양력 선택
@@ -137,12 +140,11 @@ elif "정통 사주 운세" in menu:
         birth_time = st.time_input("태어난 시간", value=datetime.strptime("03:30", "%H:%M").time())
         
         st.markdown("---")
-        manual_check = st.checkbox("⚠️ 사주팔자 직접 입력하기")
+        manual_check = st.checkbox("⚠️ 사주팔자 직접 입력하기 (옵션)")
         
         user_ganji_input = ""
         if manual_check:
-            st.caption("AI의 계산이 틀리다면 여기에 직접 적어주세요.")
-            user_ganji_input = st.text_input("예: 기축년 병인월 신사일", value="기축년 병인월 신사일")
+            user_ganji_input = st.text_input("직접 입력:", value="기축년 병인월 신사일")
 
         saju_btn = st.button("운세 풀이 시작 ✨")
 
@@ -161,7 +163,8 @@ elif "정통 사주 운세" in menu:
                         st.success(f"입력하신 사주 [{user_ganji_input}]로 풀이합니다.")
                     else:
                         target_info = f"계산된 사주: {calc_ganji} (양력변환: {solar_date_str})"
-                        st.info(f"📅 양력 변환 결과: {solar_date_str}")
+                        st.info(f"📅 양력 변환: {solar_date_str}")
+                        # 이제 여기서 '기축년 ... 신사일'이 정확히 나옵니다.
                         st.success(f"🧮 계산된 간지: {calc_ganji}")
 
                     # AI 프롬프트
@@ -169,19 +172,18 @@ elif "정통 사주 운세" in menu:
                     당신은 정통 사주 명리학 대가입니다.
                     
                     [사용자 정보]
-                    - 입력 생년월일: {birth_date} ({calendar_type})
+                    - 입력 생년월일: {birth_date} ({calendar_type}) -> 양력: {solar_date_str}
                     - 성별: {gender}
-                    - 태어난 시간: {birth_time}
                     - **사주 명식**: {target_info}
                     
-                    **핵심: 위 '사주 명식'의 글자를 절대적으로 신뢰하고 풀이하세요.**
+                    **[중요] 반드시 위 '사주 명식'에 나온 글자(예: 기축년 신사일)를 토대로 풀이하세요.**
                     
                     [요청 사항]
-                    1. 타고난 기질 (일주 중심)
-                    2. 2026년(병오년) 총운
-                    3. 재물/건강/가족운
+                    1. **타고난 기질**: 일주(Day Pillar)를 중심으로 성격을 분석해주세요.
+                    2. **2026년(병오년) 운세**: 올해의 천간 지지와 사용자의 사주와의 합/충을 고려해 설명해주세요.
+                    3. **건강 및 재물 조언**
                     
-                    말투는 점잖은 도사님 말투로 부탁하네.
+                    말투: "자네는 ~한 기질을 타고났구만." 처럼 도사님 말투.
                     """
                     
                     res = model.generate_content(prompt)
