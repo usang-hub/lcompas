@@ -8,7 +8,7 @@ from korean_lunar_calendar import KoreanLunarCalendar
 # 1. 페이지 설정
 st.set_page_config(page_title="나만의 AI 비서", page_icon="🤖", layout="wide")
 
-# 2. 만세력 함수 (윤달 기능 포함)
+# 2. [수정됨] 만세력 함수 (월두법 공식 완벽 적용)
 def get_ganji(year, month, day, hour_str, is_lunar=False, is_leap=False):
     calendar = KoreanLunarCalendar()
     
@@ -19,27 +19,60 @@ def get_ganji(year, month, day, hour_str, is_lunar=False, is_leap=False):
     else:
         solar_date = datetime(year, month, day)
     
-    # 2. 60갑자 리스트
+    # 2. 기본 데이터 (천간, 지지)
     gan = list("갑을병정무기경신임계")
     ji = list("자축인묘진사오미신유술해")
-    ganji_list = [gan[i % 10] + ji[i % 12] for i in range(60)]
-
-    # 3. 년주 (입춘 기준)
+    
+    # 3. [년주 계산] (입춘 기준)
+    # 입춘(2월 4일) 이전이면 전년도
     if solar_date.month < 2 or (solar_date.month == 2 and solar_date.day < 4):
         year_val = year - 1
     else:
         year_val = year
     
-    year_idx = (year_val - 1924) % 60
-    year_ganji = ganji_list[year_idx]
+    # 1924년(갑자) 기준 인덱스
+    # 년천간 인덱스 (0:갑, 1:을 ... 5:기 ...)
+    year_gan_idx = (year_val - 1924) % 10 
+    year_ji_idx = (year_val - 1924) % 12
+    year_ganji = gan[year_gan_idx] + ji[year_ji_idx]
 
-    # 4. 일주
-    base_date = datetime(1900, 1, 1) # 갑술일
+    # 4. [월주 계산] - 월두법(Five Tigers Seeking Method) 적용
+    # 절기 기준으로 월을 나눠야 정확하지만, 약식으로 태양력 월일로 근사값을 구하고 보정합니다.
+    # 양력 2.4~3.5: 인월, 3.6~4.4: 묘월 ...
+    
+    # 태양력 기준 월 지지 인덱스 찾기 (인월=0, 묘월=1 ...)
+    # 대략적인 절기일 (매월 4~8일 사이)
+    # 편의상 '일'이 6일 넘으면 해당 월, 아니면 전달로 계산 (약식 로직)
+    # 예: 2월 20일 -> 인월(0), 3월 1일 -> 인월(0), 3월 10일 -> 묘월(1)
+    
+    # 기준을 단순화: (월 - 2) 가 기본 인덱스인데, 일자가 작으면 -1
+    month_ji_idx = solar_date.month - 2
+    if solar_date.day < 5: # 절기 교체일 이전이면 전달로 침
+        month_ji_idx -= 1
+    
+    if month_ji_idx < 0: # 1월(축월) 처리
+        month_ji_idx += 12
+        
+    # [핵심] 월두법 공식: 연간에 따라 월간의 시작이 달라짐
+    # 갑/기 년 -> 병인월 시작 (시작점 인덱스 2)
+    # 을/경 년 -> 무인월 시작 (시작점 인덱스 4)
+    # 병/신 년 -> 경인월 시작 (시작점 인덱스 6)
+    # 정/임 년 -> 임인월 시작 (시작점 인덱스 8)
+    # 무/계 년 -> 갑인월 시작 (시작점 인덱스 0)
+    
+    # 공식: (년간인덱스 % 5 + 1) * 2
+    month_start_gan_idx = (year_gan_idx % 5 + 1) * 2
+    month_gan_idx = (month_start_gan_idx + month_ji_idx) % 10
+    
+    month_ganji = gan[month_gan_idx] + ji[(month_ji_idx + 2) % 12] # 지지는 인(寅)부터 시작하므로 +2 보정
+
+    # 5. [일주 계산]
+    base_date = datetime(1900, 1, 1) # 갑술일 (idx 10)
     days_diff = (solar_date - base_date).days
-    day_idx = (days_diff + 10) % 60
-    day_ganji = ganji_list[day_idx]
+    day_total_idx = (days_diff + 10) 
+    day_ganji = gan[day_total_idx % 10] + ji[day_total_idx % 12]
 
-    return f"{year_ganji}년 (생략)월 {day_ganji}일", solar_date.strftime("%Y년 %m월 %d일")
+    return f"{year_ganji}년 {month_ganji}월 {day_ganji}일", solar_date.strftime("%Y년 %m월 %d일")
 
 # 3. 주식 리스트 캐싱
 @st.cache_data
@@ -114,40 +147,39 @@ elif "만능 자산 비서" in menu:
                 st.error("데이터 조회 실패")
 
 # =========================================================
-# 기능 3: 정통 사주 운세 (날짜 범위 확장)
+# 기능 3: 정통 사주 운세 (월두법 적용)
 # =========================================================
 elif "정통 사주 운세" in menu:
     st.title("🥠 AI 정통 사주 명리학")
-    st.info("정확한 만세력(윤달 포함) 알고리즘으로 분석합니다.")
+    st.info("정확한 만세력(윤달/월두법 포함) 알고리즘으로 분석합니다.")
 
     col1, col2 = st.columns([1, 1])
 
     with col1:
         st.subheader("📝 내 정보 입력")
         
-        # [수정] 날짜 범위를 1900년 ~ 2100년으로 대폭 확장
+        # 날짜 범위 1900~2100
         birth_date = st.date_input(
             "생년월일", 
-            value=datetime(1949, 7, 10), 
+            value=datetime(1949, 1, 23), 
             min_value=datetime(1900, 1, 1), 
             max_value=datetime(2100, 12, 31)
         )
         
         calendar_type = st.radio("달력 구분", ["음력", "양력"], index=0, horizontal=True)
         
-        # 윤달 체크박스
         is_leap_month = False
         if calendar_type == "음력":
-            is_leap_month = st.checkbox("이 달이 '윤달(Leap Month)' 입니까?", value=True)
+            is_leap_month = st.checkbox("이 달이 '윤달(Leap Month)' 입니까?", value=False)
 
         gender = st.radio("성별", ["남성", "여성"], index=1, horizontal=True)
-        birth_time = st.time_input("태어난 시간", value=datetime.strptime("17:15", "%H:%M").time())
+        birth_time = st.time_input("태어난 시간", value=datetime.strptime("04:15", "%H:%M").time())
         
         st.markdown("---")
         manual_check = st.checkbox("⚠️ 사주팔자 직접 입력하기 (옵션)")
         user_ganji_input = ""
         if manual_check:
-            user_ganji_input = st.text_input("직접 입력:", value="기축년 신미월 을미일")
+            user_ganji_input = st.text_input("직접 입력:", value="기축년 병인월 신사일")
 
         saju_btn = st.button("운세 풀이 시작 ✨")
 
@@ -184,7 +216,7 @@ elif "정통 사주 운세" in menu:
                     - **사주 명식**: {target_info}
                     
                     [요청 사항]
-                    1. 타고난 기질 (일주 중심)
+                    1. 타고난 기질 (일주와 월주를 중심으로)
                     2. 2026년(병오년) 신년 운세
                     3. 건강, 재물, 가족운 조언
                     
