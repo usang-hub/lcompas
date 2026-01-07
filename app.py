@@ -8,25 +8,23 @@ from korean_lunar_calendar import KoreanLunarCalendar
 # 1. 페이지 설정
 st.set_page_config(page_title="나만의 AI 비서", page_icon="🤖", layout="wide")
 
-# 2. [수정됨] 만세력 함수 (윤달 기능 추가)
+# 2. 만세력 함수 (윤달 기능 포함)
 def get_ganji(year, month, day, hour_str, is_lunar=False, is_leap=False):
     calendar = KoreanLunarCalendar()
     
     # 1. 음력 -> 양력 변환
     if is_lunar:
-        # 마지막 인자가 isIntercalation (윤달 여부)
         calendar.setLunarDate(year, month, day, is_leap)
         solar_date = datetime(calendar.solarYear, calendar.solarMonth, calendar.solarDay)
     else:
         solar_date = datetime(year, month, day)
     
-    # 2. 60갑자 리스트 생성
+    # 2. 60갑자 리스트
     gan = list("갑을병정무기경신임계")
     ji = list("자축인묘진사오미신유술해")
     ganji_list = [gan[i % 10] + ji[i % 12] for i in range(60)]
 
-    # 3. 년주 (Year Pillar)
-    # 입춘(2월 4일) 기준
+    # 3. 년주 (입춘 기준)
     if solar_date.month < 2 or (solar_date.month == 2 and solar_date.day < 4):
         year_val = year - 1
     else:
@@ -35,8 +33,8 @@ def get_ganji(year, month, day, hour_str, is_lunar=False, is_leap=False):
     year_idx = (year_val - 1924) % 60
     year_ganji = ganji_list[year_idx]
 
-    # 4. 일주 (Day Pillar)
-    base_date = datetime(1900, 1, 1) # 갑술일 (idx 10)
+    # 4. 일주
+    base_date = datetime(1900, 1, 1) # 갑술일
     days_diff = (solar_date - base_date).days
     day_idx = (days_diff + 10) % 60
     day_ganji = ganji_list[day_idx]
@@ -116,7 +114,7 @@ elif "만능 자산 비서" in menu:
                 st.error("데이터 조회 실패")
 
 # =========================================================
-# 기능 3: 정통 사주 운세 (윤달 기능 탑재)
+# 기능 3: 정통 사주 운세 (날짜 범위 확장)
 # =========================================================
 elif "정통 사주 운세" in menu:
     st.title("🥠 AI 정통 사주 명리학")
@@ -127,16 +125,20 @@ elif "정통 사주 운세" in menu:
     with col1:
         st.subheader("📝 내 정보 입력")
         
-        # 년/월/일 입력 (선생님 사례를 기본값으로!)
-        birth_date = st.date_input("생년월일", value=datetime(1949, 7, 10), min_value=datetime(1930, 1, 1))
+        # [수정] 날짜 범위를 1900년 ~ 2100년으로 대폭 확장
+        birth_date = st.date_input(
+            "생년월일", 
+            value=datetime(1949, 7, 10), 
+            min_value=datetime(1900, 1, 1), 
+            max_value=datetime(2100, 12, 31)
+        )
         
-        # 음력/양력 선택
         calendar_type = st.radio("달력 구분", ["음력", "양력"], index=0, horizontal=True)
         
-        # [핵심] 윤달 체크박스 (음력일 때만 보임)
+        # 윤달 체크박스
         is_leap_month = False
         if calendar_type == "음력":
-            is_leap_month = st.checkbox("이 달이 '윤달(Leap Month)' 입니까?", value=True) # 편의상 체크된 상태로 시작
+            is_leap_month = st.checkbox("이 달이 '윤달(Leap Month)' 입니까?", value=True)
 
         gender = st.radio("성별", ["남성", "여성"], index=1, horizontal=True)
         birth_time = st.time_input("태어난 시간", value=datetime.strptime("17:15", "%H:%M").time())
@@ -153,11 +155,10 @@ elif "정통 사주 운세" in menu:
         if saju_btn:
             model = genai.GenerativeModel(selected_model)
             
-            with st.spinner("🧮 윤달 여부를 계산하여 만세력을 확인 중입니다..."):
+            with st.spinner("🧮 만세력 계산 중..."):
                 try:
                     is_lunar = True if calendar_type == "음력" else False
                     
-                    # [핵심] 윤달 정보(is_leap_month)를 함수에 전달
                     calc_ganji, solar_date_str = get_ganji(
                         birth_date.year, birth_date.month, birth_date.day, 
                         "", is_lunar, is_leap_month
@@ -169,13 +170,10 @@ elif "정통 사주 운세" in menu:
                         st.success(f"입력하신 사주 [{user_ganji_input}]로 풀이합니다.")
                     else:
                         target_info = f"계산된 사주: {calc_ganji} (양력변환: {solar_date_str})"
-                        
-                        # 사용자 확인용 메시지
                         month_type = "윤달" if is_leap_month else "평달"
-                        st.info(f"📅 변환 결과: {birth_date} ({month_type}) → 양력 {solar_date_str}")
-                        st.success(f"🧮 계산된 간지: {calc_ganji}")
+                        st.info(f"📅 변환: {birth_date} ({month_type}) → 양력 {solar_date_str}")
+                        st.success(f"🧮 간지: {calc_ganji}")
 
-                    # AI 프롬프트
                     prompt = f"""
                     당신은 조선 최고의 명리학자입니다.
                     
@@ -185,14 +183,12 @@ elif "정통 사주 운세" in menu:
                     - 태어난 시간: {birth_time}
                     - **사주 명식**: {target_info}
                     
-                    **[중요] 위 '사주 명식'에 나온 일주(Day Pillar)를 기준으로 정확히 풀이하세요.**
-                    
                     [요청 사항]
                     1. 타고난 기질 (일주 중심)
                     2. 2026년(병오년) 신년 운세
-                    3. 건강, 재물, 가족운에 대한 조언
+                    3. 건강, 재물, 가족운 조언
                     
-                    말투: "자네는 을미일주로 태어났구만. 이것은 백호대살의 기운이 있으나..." 처럼 도사님 말투.
+                    말투: 도사님 말투.
                     """
                     
                     res = model.generate_content(prompt)
