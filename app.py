@@ -58,9 +58,10 @@ def get_all_stock_list():
 # --- 사이드바 ---
 with st.sidebar:
     st.title("🤖 AI 비서실")
+    # 메뉴 5개로 확장!
     menu = st.radio("기능 선택", 
-        ["🧭 인생 나침반", "💰 만능 자산 비서", "🥠 정통 사주 운세", "🍽️ 미식가 비서"], 
-        index=3 
+        ["🧭 인생 나침반", "💰 만능 자산 비서", "🥠 정통 사주 운세", "🍽️ 미식가 비서", "🏨 숙박/여행 비서"], 
+        index=4 # 바로 테스트해보시라고 숙박 비서 선택
     )
     st.markdown("---")
     selected_model = st.selectbox("사용 모델", ["gemini-2.0-flash-exp", "gemini-1.5-flash"], index=0)
@@ -176,61 +177,96 @@ elif "정통 사주 운세" in menu:
 # =========================================================
 elif "미식가 비서" in menu:
     st.title("🍽️ 우리 동네 미식가 비서")
-    st.info("AI가 맛집을 추천하고, 네이버 검색으로 검증까지 도와줍니다!")
-
     col1, col2 = st.columns([1, 1])
     
     with col1:
-        st.subheader("😋 어디서 무엇을 드실까요?")
-        location = st.text_input("지역 입력", placeholder="예: 종로3가, 강남역, 우리집 근처")
-        food_type = st.text_input("메뉴 입력", placeholder="예: 김치찌개, 파스타, 보양식")
-        
-        st.markdown("##### 📌 선호하는 분위기")
-        option1 = st.checkbox("👨‍👩‍👧‍👦 가족 모임")
-        option2 = st.checkbox("🍷 조용한/분위기 있는")
-        option3 = st.checkbox("💰 가성비 좋은")
-        
-        food_btn = st.button("맛집 찾아줘! 🔍")
+        st.subheader("😋 맛집 검색")
+        location = st.text_input("지역 (예: 종로3가)", key="food_loc")
+        food_type = st.text_input("메뉴 (예: 설렁탕)", key="food_menu")
+        food_btn = st.button("맛집 찾기 🔍")
 
     with col2:
         if food_btn:
-            if not location or not food_type:
-                st.warning("지역과 메뉴를 모두 입력해주세요.")
+            if location and food_type:
+                model = genai.GenerativeModel(selected_model)
+                with st.spinner("맛집 검색 중..."):
+                    # [주의] 따옴표 3개 잘 닫았습니다!
+                    prompt = f"""
+                    '{location}' 지역의 '{food_type}' 맛집 3곳을 추천해줘.
+                    특징, 가격대, 추천 이유를 솔직하게 알려줘.
+                    """
+                    res = model.generate_content(prompt)
+                    st.markdown(f"### 🍴 {location} 추천 맛집")
+                    st.write(res.text)
+                    
+                    query = f"{location} {food_type} 맛집"
+                    st.link_button(f"🟢 네이버 후기 확인 ({query})", f"https://search.naver.com/search.naver?query={query}")
+            else:
+                st.warning("지역과 메뉴를 입력해주세요.")
+
+# =========================================================
+# 기능 5: 숙박/여행 비서 (신규 추가!)
+# =========================================================
+elif "숙박/여행 비서" in menu:
+    st.title("🏨 든든한 숙박/여행 비서")
+    st.info("여행지 숙소 고민, 이제 AI에게 맡기세요. 최저가 검색까지 한 번에!")
+
+    col1, col2 = st.columns([1, 1])
+
+    with col1:
+        st.subheader("✈️ 어디로 떠나시나요?")
+        travel_dest = st.text_input("여행지 입력", placeholder="예: 부산 해운대, 강원도 속초, 제주도")
+        
+        # 날짜와 인원
+        c1, c2 = st.columns(2)
+        with c1:
+            people = st.number_input("인원 (명)", min_value=1, value=2)
+        with c2:
+            travel_type = st.selectbox("숙소 취향", ["호텔 (깔끔함)", "펜션/리조트 (가족)", "한옥/게스트하우스", "가성비 모텔"])
+            
+        # 추가 요청사항
+        requests = st.text_input("특별 요청 (예: 오션뷰, 조식 포함, 10만원대)", placeholder="가격대나 원하시는 조건을 적어주세요")
+        
+        hotel_btn = st.button("숙소 추천해줘! 🛏️")
+
+    with col2:
+        if hotel_btn:
+            if not travel_dest:
+                st.warning("여행지를 입력해주세요!")
             else:
                 model = genai.GenerativeModel(selected_model)
                 
-                # 옵션 텍스트 만들기
-                options = []
-                if option1: options.append("가족 모임하기 좋은")
-                if option2: options.append("조용하고 분위기 있는")
-                if option3: options.append("가격이 합리적인(가성비)")
-                option_str = ", ".join(options)
-                
-                with st.spinner(f"AI가 '{location}'의 '{food_type}' 맛집을 찾는 중..."):
+                with st.spinner(f"AI가 '{travel_dest}'의 좋은 숙소를 고르고 있습니다..."):
                     try:
-                        # [주의] 따옴표 3개(""")로 시작했으면 끝날 때도 꼭 3개로 닫아야 합니다!
+                        # 숙박 전문 프롬프트
                         prompt = f"""
-                        당신은 맛집 전문 가이드입니다.
-                        사용자가 '{location}' 지역에서 '{food_type}'을(를) 찾고 있습니다.
-                        특별 요청: {option_str}
+                        당신은 20년 경력의 여행사 가이드입니다.
+                        손님이 '{travel_dest}'로 여행을 갑니다.
                         
-                        1. 이 지역에서 평이 좋은 식당 3곳 추천.
-                        2. 각 식당의 특징, 대표 메뉴, 가격대 설명.
-                        3. 광고 없이 솔직한 느낌으로 추천.
+                        [조건]
+                        - 인원: {people}명
+                        - 숙소 형태: {travel_type}
+                        - 특별 요청: {requests}
+                        
+                        1. 조건에 맞는 추천 숙소 3곳을 뽑아주세요.
+                        2. 각 숙소의 장점, 대략적인 1박 가격, 추천 이유를 설명해주세요.
+                        3. 너무 비싼 곳만 추천하지 말고, 가성비 좋은 곳도 섞어주세요.
                         """
                         
                         res = model.generate_content(prompt)
                         
-                        st.markdown(f"### 🍴 {location} 추천 맛집")
+                        st.markdown(f"### 🏨 {travel_dest} 추천 숙소")
                         st.write(res.text)
                         
                         st.markdown("---")
-                        # 네이버 검색 버튼 생성
-                        query = f"{location} {food_type} 맛집"
-                        naver_url = f"https://search.naver.com/search.naver?query={query}"
+                        st.success("마음에 드는 곳이 있나요? 실제 가격과 빈방을 확인해보세요!")
                         
-                        st.success("AI 추천이 마음에 드시나요? 실제 후기를 확인해보세요!")
-                        st.link_button(f"🟢 네이버에서 '{query}' 실제 후기 보기", naver_url)
+                        # 네이버 호텔 검색 링크
+                        query = f"{travel_dest} {travel_type} 추천"
+                        naver_hotel_url = f"https://search.naver.com/search.naver?query={query}"
+                        
+                        # 아고다/부킹닷컴 같은 느낌을 주기 위한 버튼 배치
+                        st.link_button(f"🟢 네이버에서 '{travel_dest}' 숙소 실시간 최저가 보기", naver_hotel_url)
                         
                     except Exception as e:
-                        st.error("맛집을 찾는 도중 문제가 발생했습니다.")
+                        st.error("숙소를 찾는 중 문제가 발생했습니다.")
