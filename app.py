@@ -8,7 +8,7 @@ from korean_lunar_calendar import KoreanLunarCalendar
 # 1. 페이지 설정
 st.set_page_config(page_title="나만의 AI 비서", page_icon="🤖", layout="wide")
 
-# 2. [함수] 만세력 등 기존 함수들
+# 2. [함수] 만세력 등 기존 로직 유지
 def get_ganji(year, month, day, hour_str, is_lunar=False, is_leap=False):
     calendar = KoreanLunarCalendar()
     if is_lunar:
@@ -55,15 +55,16 @@ def get_all_stock_list():
 with st.sidebar:
     st.title("🤖 AI 비서실")
     
-    # 메뉴를 그룹으로 나눠서 깔끔하게 정리
     st.subheader("🌟 라이프스타일")
-    menu_life = st.radio("즐겨찾기", ["🧭 인생 나침반", "💰 만능 자산 비서", "🥠 정통 사주 운세", "🍽️ 미식가 비서", "🏨 숙박/여행 비서"], index=0)
+    # 메뉴에 '교통/예매 비서' 추가!
+    menu_life = st.radio("즐겨찾기", 
+        ["🧭 인생 나침반", "💰 만능 자산 비서", "🥠 정통 사주 운세", "🍽️ 미식가 비서", "🏨 숙박/여행 비서", "🚍 교통/예매 비서"], 
+        index=0)
     
     st.markdown("---")
     st.subheader("🛡️ 안심 케어")
     menu_safe = st.radio("건강/안전", ["선택안함", "🏥 건강검진 비서", "👮‍♂️ 스팸/피싱 탐지관"], index=0)
     
-    # 로직: 안심 케어를 선택하면 그쪽 화면을 보여줌
     if menu_safe != "선택안함":
         current_menu = menu_safe
     else:
@@ -71,7 +72,6 @@ with st.sidebar:
 
     st.markdown("---")
     
-    # API 키 처리
     api_key = None
     if "GOOGLE_API_KEY" in st.secrets:
         api_key = st.secrets["GOOGLE_API_KEY"]
@@ -152,6 +152,43 @@ elif current_menu == "🏨 숙박/여행 비서":
         model = genai.GenerativeModel("gemini-1.5-flash")
         st.write(model.generate_content(f"'{dest}' 여행 숙소(호텔,펜션) 3곳 추천. 특징과 가격대.").text)
         st.link_button("네이버 최저가 보기", f"https://search.naver.com/search.naver?query={dest} 숙소 추천")
+
+elif current_menu == "🚍 교통/예매 비서":
+    st.title("🚍 교통/예매 비서")
+    st.info("출발지와 도착지를 입력하면, AI가 여행 팁을 드리고 시간표 검색을 연결해 드립니다.")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        departure = st.text_input("출발지", placeholder="예: 서울")
+        arrival = st.text_input("도착지", placeholder="예: 부산")
+    with col2:
+        transport_type = st.radio("교통 수단", ["KTX/열차", "고속버스/시외버스"], horizontal=True)
+        
+    if st.button("시간표 및 노선 확인 🔍"):
+        if departure and arrival:
+            model = genai.GenerativeModel("gemini-1.5-flash")
+            with st.spinner("경로 분석 중..."):
+                # AI의 역할: 여행 조언
+                msg = model.generate_content(f"{departure}에서 {arrival}까지 {transport_type}로 이동할 때 걸리는 대략적인 시간과 70대 어르신을 위한 여행/건강 팁을 한 문단으로 짧게 알려줘.").text
+                st.success("🤖 AI의 여행 조언")
+                st.write(msg)
+                
+                st.markdown("---")
+                st.subheader("🎫 실시간 시간표/예매 바로가기")
+                
+                # 네이버 검색 연결 (가장 정확함)
+                query = f"{departure}에서 {arrival} {transport_type} 시간표"
+                naver_url = f"https://search.naver.com/search.naver?query={query}"
+                st.link_button(f"📅 네이버에서 '{query}' 실시간 확인", naver_url, use_container_width=True)
+                
+                # 공식 예매 사이트 연결 버튼
+                c1, c2 = st.columns(2)
+                with c1:
+                    st.link_button("🚆 레츠코레일 (기차 예매)", "https://www.letskorail.com", use_container_width=True)
+                with c2:
+                    st.link_button("🚌 코버스 (고속버스 예매)", "https://www.kobus.co.kr", use_container_width=True)
+        else:
+            st.warning("출발지와 도착지를 모두 입력해주세요.")
 
 elif current_menu == "🏥 건강검진 비서":
     st.title("🏥 건강검진 결과 해석")
