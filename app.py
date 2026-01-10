@@ -71,8 +71,11 @@ with st.sidebar:
 
     st.markdown("---")
     
-    st.caption("⚙️ 설정")
-    selected_model = st.selectbox("AI 모델 선택", ["gemini-pro", "gemini-1.5-flash"], index=0)
+    # [중요] 모델 리스트를 4개로 늘렸습니다. 하나씩 골라보세요!
+    st.caption("⚙️ 설정 (에러 시 변경해보세요)")
+    selected_model = st.selectbox("AI 모델 선택", 
+                                  ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash-exp", "gemini-pro"], 
+                                  index=0)
     
     api_key = None
     if "GOOGLE_API_KEY" in st.secrets:
@@ -98,6 +101,7 @@ if current_menu == "🧭 인생 나침반":
                 st.write(model.generate_content(f"70대 멘토로서 답변: {worry}").text)
         except Exception as e:
             st.error(f"오류: {e}")
+            st.warning("👈 왼쪽 사이드바에서 'AI 모델'을 다른 것으로 변경해보세요!")
 
 elif current_menu == "💰 만능 자산 비서":
     st.title("💰 만능 투자 분석 비서")
@@ -126,7 +130,8 @@ elif current_menu == "💰 만능 자산 비서":
                 else:
                     st.error("데이터가 없습니다.")
             except Exception as e:
-                st.error(f"데이터 조회 실패: {e}")
+                st.error(f"오류: {e}")
+                st.warning("👈 왼쪽 사이드바에서 'AI 모델'을 다른 것으로 변경해보세요!")
 
 elif current_menu == "🥠 정통 사주 운세":
     st.title("🥠 AI 정통 사주 명리학")
@@ -145,6 +150,7 @@ elif current_menu == "🥠 정통 사주 운세":
                 st.write(model.generate_content(f"명리학자로서 {b_date}({cal_type}), {gender}, {b_time}, 사주:{ganji}인 사람의 기질과 2026년 운세, 조언을 해주세요.").text)
             except Exception as e:
                 st.error(f"오류: {e}")
+                st.warning("👈 왼쪽 사이드바에서 'AI 모델'을 다른 것으로 변경해보세요!")
 
 elif current_menu == "🍽️ 미식가 비서":
     st.title("🍽️ 미식가 비서")
@@ -158,6 +164,7 @@ elif current_menu == "🍽️ 미식가 비서":
             st.link_button("네이버 후기 보기", f"https://search.naver.com/search.naver?query={loc} {menu} 맛집")
         except Exception as e:
             st.error(f"오류: {e}")
+            st.warning("👈 왼쪽 사이드바에서 'AI 모델'을 다른 것으로 변경해보세요!")
 
 elif current_menu == "🏨 숙박/여행 비서":
     st.title("🏨 숙박/여행 비서")
@@ -169,6 +176,7 @@ elif current_menu == "🏨 숙박/여행 비서":
             st.link_button("네이버 최저가 보기", f"https://search.naver.com/search.naver?query={dest} 숙소 추천")
         except Exception as e:
             st.error(f"오류: {e}")
+            st.warning("👈 왼쪽 사이드바에서 'AI 모델'을 다른 것으로 변경해보세요!")
 
 elif current_menu == "🚍 교통/예매 비서":
     st.title("🚍 교통/예매 비서")
@@ -204,6 +212,7 @@ elif current_menu == "🚍 교통/예매 비서":
                         st.link_button("🚌 코버스 (고속버스 예매)", "https://www.kobus.co.kr", use_container_width=True)
             except Exception as e:
                 st.error(f"오류가 발생했습니다: {e}")
+                st.warning("👈 왼쪽 사이드바에서 'AI 모델'을 다른 것으로 변경해보세요!")
         else:
             st.warning("출발지와 도착지를 모두 입력해주세요.")
 
@@ -217,6 +226,7 @@ elif current_menu == "🏥 건강검진 비서":
             st.write(model.generate_content(f"의사로서 분석해줘. 나이:{age}, 데이터:{h_data}. 쉬운 설명과 조언.").text)
         except Exception as e:
             st.error(f"오류: {e}")
+            st.warning("👈 왼쪽 사이드바에서 'AI 모델'을 다른 것으로 변경해보세요!")
 
 elif current_menu == "👮‍♂️ 스팸/피싱 탐지관":
     st.title("👮‍♂️ 스팸/피싱 탐지관")
@@ -227,3 +237,4 @@ elif current_menu == "👮‍♂️ 스팸/피싱 탐지관":
             st.write(model.generate_content(f"사이버수사관으로서 분석해줘. 메시지:{msg}. 위험도와 대처법.").text)
         except Exception as e:
             st.error(f"오류: {e}")
+            st.warning("👈 왼쪽 사이드바에서 'AI 모델'을 다른 것으로 변경해보세요!")
