@@ -71,7 +71,6 @@ with st.sidebar:
 
     st.markdown("---")
     
-    # gemini-pro를 기본값으로 설정 (에러 방지)
     st.caption("⚙️ 설정")
     selected_model = st.selectbox("AI 모델 선택", ["gemini-pro", "gemini-1.5-flash"], index=0)
     
@@ -118,7 +117,6 @@ elif current_menu == "💰 만능 자산 비서":
         btn = st.button("분석 실행 🚀")
     with col2:
         if btn:
+            # [수정] try 밑에 except를 명확하게 줄을 맞춰서 넣었습니다!
             try:
-                df = fdr.DataReader(final_code, datetime.now() - timedelta(days=100))
-                if not df.empty:
-                    st.line_chart(df['Close'])
+                df = fdr.DataReader(final_code, datetime.now() - timedelta
