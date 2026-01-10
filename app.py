@@ -71,7 +71,7 @@ with st.sidebar:
 
     st.markdown("---")
     
-    # [핵심 수정] 에러 안 나는 'gemini-pro'를 1순위(기본값)로 변경!
+    # gemini-pro를 기본값으로 설정 (에러 방지)
     st.caption("⚙️ 설정")
     selected_model = st.selectbox("AI 모델 선택", ["gemini-pro", "gemini-1.5-flash"], index=0)
     
@@ -122,52 +122,3 @@ elif current_menu == "💰 만능 자산 비서":
                 df = fdr.DataReader(final_code, datetime.now() - timedelta(days=100))
                 if not df.empty:
                     st.line_chart(df['Close'])
-                    model = genai.GenerativeModel(selected_model)
-                    st.write(model.generate_content(f"'{selected_name}' 주가 분석. 데이터: {df.tail(5).to_string()}").text)
-            except: st.error("데이터 조회 실패")
-
-elif current_menu == "🥠 정통 사주 운세":
-    st.title("🥠 AI 정통 사주 명리학")
-    col1, col2 = st.columns([1,1])
-    with col1:
-        b_date = st.date_input("생년월일", value=datetime(1949, 1, 23), min_value=datetime(1900,1,1))
-        cal_type = st.radio("달력", ["양력", "음력"], horizontal=True)
-        is_leap = st.checkbox("윤달") if cal_type == "음력" else False
-        gender = st.radio("성별", ["남성", "여성"], horizontal=True)
-        b_time = st.time_input("태어난 시간", value=datetime.strptime("04:15", "%H:%M").time())
-        if st.button("운세 풀이 ✨"):
-            try:
-                model = genai.GenerativeModel(selected_model)
-                ganji, _ = get_ganji(b_date.year, b_date.month, b_date.day, "", (cal_type=="음력"), is_leap)
-                st.success(f"사주: {ganji}")
-                st.write(model.generate_content(f"명리학자로서 {b_date}({cal_type}), {gender}, {b_time}, 사주:{ganji}인 사람의 기질과 2026년 운세, 조언을 해주세요.").text)
-            except Exception as e:
-                st.error(f"오류: {e}")
-
-elif current_menu == "🍽️ 미식가 비서":
-    st.title("🍽️ 미식가 비서")
-    loc = st.text_input("지역 (예: 종로3가)")
-    menu = st.text_input("메뉴 (예: 한정식)")
-    if st.button("맛집 찾기") and loc and menu:
-        try:
-            model = genai.GenerativeModel(selected_model)
-            res = model.generate_content(f"'{loc}'의 '{menu}' 맛집 3곳 추천. 특징, 가격대 설명.").text
-            st.write(res)
-            st.link_button("네이버 후기 보기", f"https://search.naver.com/search.naver?query={loc} {menu} 맛집")
-        except Exception as e:
-            st.error(f"오류: {e}")
-
-elif current_menu == "🏨 숙박/여행 비서":
-    st.title("🏨 숙박/여행 비서")
-    dest = st.text_input("여행지 (예: 속초)")
-    if st.button("숙소 추천") and dest:
-        try:
-            model = genai.GenerativeModel(selected_model)
-            st.write(model.generate_content(f"'{dest}' 여행 숙소(호텔,펜션) 3곳 추천. 특징과 가격대.").text)
-            st.link_button("네이버 최저가 보기", f"https://search.naver.com/search.naver?query={dest} 숙소 추천")
-        except Exception as e:
-            st.error(f"오류: {e}")
-
-elif current_menu == "🚍 교통/예매 비서":
-    st.title("🚍 교통/예매 비서")
-    st.info("출발지와 도착지를 입력하면, AI가 여행 팁을 드리고
