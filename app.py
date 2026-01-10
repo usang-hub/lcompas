@@ -92,31 +92,3 @@ if current_menu == "🧭 인생 나침반":
     st.title("🧭 인생 나침반")
     worry = st.text_area("고민을 털어놓으세요", height=150)
     if st.button("조언 듣기") and worry:
-        try:
-            model = genai.GenerativeModel(selected_model)
-            with st.spinner("생각 중..."):
-                st.write(model.generate_content(f"70대 멘토로서 답변: {worry}").text)
-        except Exception as e:
-            st.error(f"오류: {e}")
-
-elif current_menu == "💰 만능 자산 비서":
-    st.title("💰 만능 투자 분석 비서")
-    col1, col2 = st.columns([1, 2])
-    with col1:
-        stock_df = get_all_stock_list()
-        if stock_df.empty:
-            manual_input = st.text_input("종목코드", value="005930")
-            final_code = manual_input
-            selected_name = "종목"
-        else:
-            stock_list = stock_df['Display'].tolist()
-            idx = stock_list.index("삼성전자 (005930)") if "삼성전자 (005930)" in stock_list else 0
-            selected_item = st.selectbox("종목 선택", stock_list, index=idx)
-            selected_name = selected_item.split(' (')[0]
-            final_code = selected_item.split('(')[-1].replace(')', '')
-        btn = st.button("분석 실행 🚀")
-    with col2:
-        if btn:
-            # [수정] try 밑에 except를 명확하게 줄을 맞춰서 넣었습니다!
-            try:
-                df = fdr.DataReader(final_code, datetime.now() - timedelta
