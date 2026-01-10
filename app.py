@@ -8,7 +8,7 @@ from korean_lunar_calendar import KoreanLunarCalendar
 # 1. 페이지 설정
 st.set_page_config(page_title="나만의 AI 비서", page_icon="🤖", layout="wide")
 
-# 2. [함수] 만세력 및 주식 데이터
+# 2. [함수] 만세력 및 주식 데이터 (비상용 목록 추가!)
 def get_ganji(year, month, day, hour_str, is_lunar=False, is_leap=False):
     calendar = KoreanLunarCalendar()
     if is_lunar:
@@ -45,11 +45,19 @@ def get_ganji(year, month, day, hour_str, is_lunar=False, is_leap=False):
 @st.cache_data
 def get_all_stock_list():
     try:
+        # 1차 시도: 전체 목록 다운로드
         df = fdr.StockListing('KRX')
         df['Display'] = df['Name'] + " (" + df['Code'] + ")"
         return df
     except:
-        return pd.DataFrame()
+        # [핵심 수정] 다운로드 실패 시 사용할 '비상용 인기 종목 리스트'
+        data = {
+            'Name': ['삼성전자', 'SK하이닉스', 'LG에너지솔루션', '삼성바이오로직스', '현대차', '기아', 'POSCO홀딩스', 'NAVER', '카카오', '셀트리온'],
+            'Code': ['005930', '000660', '373220', '207940', '005380', '000270', '005490', '035420', '035720', '068270']
+        }
+        df = pd.DataFrame(data)
+        df['Display'] = df['Name'] + " (" + df['Code'] + ")"
+        return df
 
 # --- 사이드바 ---
 with st.sidebar:
@@ -83,7 +91,6 @@ with st.sidebar:
         genai.configure(api_key=api_key)
         st.success("API 연결 성공 ✅")
         
-        # 사용 가능한 모델을 직접 조회
         try:
             for m in genai.list_models():
                 if 'generateContent' in m.supported_generation_methods:
@@ -92,11 +99,10 @@ with st.sidebar:
         except Exception as e:
             st.error(f"모델 조회 실패: {e}")
 
-    # 조회된 모델이 없으면 기본값 사용
     if not available_models:
         available_models = ["gemini-1.5-flash", "gemini-pro", "gemini-1.0-pro"]
     
-    st.caption("⚙️ 설정 (사용 가능한 모델 자동 감지)")
+    st.caption("⚙️ 설정")
     selected_model = st.selectbox("AI 모델 선택", available_models, index=0)
 
 # =========================================================
@@ -117,31 +123,48 @@ if current_menu == "🧭 인생 나침반":
 elif current_menu == "💰 만능 자산 비서":
     st.title("💰 만능 투자 분석 비서")
     col1, col2 = st.columns([1, 2])
+    
+    # [수정] 주식 리스트 로직 강화
     with col1:
         stock_df = get_all_stock_list()
-        if stock_df.empty:
-            manual_input = st.text_input("종목코드", value="005930")
-            final_code = manual_input
-            selected_name = "종목"
-        else:
+        
+        # 목록이 있으면 선택 상자를 보여줌
+        if not stock_df.empty:
             stock_list = stock_df['Display'].tolist()
-            idx = stock_list.index("삼성전자 (005930)") if "삼성전자 (005930)" in stock_list else 0
-            selected_item = st.selectbox("종목 선택", stock_list, index=idx)
+            # 삼성전자가 리스트에 있으면 기본값으로 잡기
+            default_idx = 0
+            for i, s in enumerate(stock_list):
+                if "삼성전자" in s:
+                    default_idx = i
+                    break
+            
+            selected_item = st.selectbox("종목 선택", stock_list, index=default_idx)
             selected_name = selected_item.split(' (')[0]
             final_code = selected_item.split('(')[-1].replace(')', '')
+        
+        # 만약 정말로 목록이 텅 비었으면 수동 입력 (안내 문구 강화)
+        else:
+            st.warning("종목 목록을 불러오지 못했습니다.")
+            manual_input = st.text_input("종목코드 입력 (예: 005930)", value="005930")
+            final_code = manual_input
+            selected_name = "종목"
+            
         btn = st.button("분석 실행 🚀")
+
     with col2:
         if btn:
             try:
+                # 데이터 가져오기
                 df = fdr.DataReader(final_code, datetime.now() - timedelta(days=100))
                 if not df.empty:
                     st.line_chart(df['Close'])
                     model = genai.GenerativeModel(selected_model)
                     st.write(model.generate_content(f"'{selected_name}' 주가 분석. 데이터: {df.tail(5).to_string()}").text)
                 else:
-                    st.error("데이터가 없습니다.")
+                    st.error(f"데이터를 찾을 수 없습니다. 코드('{final_code}')가 정확한지 확인해주세요.")
             except Exception as e:
-                st.error(f"오류: {e}")
+                st.error(f"오류가 발생했습니다: {e}")
+                st.caption("팁: '삼성전자' 같은 이름 말고 '005930' 같은 숫자를 사용해야 합니다.")
 
 elif current_menu == "🥠 정통 사주 운세":
     st.title("🥠 AI 정통 사주 명리학")
@@ -151,9 +174,7 @@ elif current_menu == "🥠 정통 사주 운세":
         cal_type = st.radio("달력", ["양력", "음력"], horizontal=True)
         is_leap = st.checkbox("윤달") if cal_type == "음력" else False
         gender = st.radio("성별", ["남성", "여성"], horizontal=True)
-        # [수정완료] 끊겼던 부분이 여기입니다! 따옴표와 괄호를 완벽하게 닫았습니다.
         b_time = st.time_input("태어난 시간", value=datetime.strptime("04:15", "%H:%M").time())
-        
         if st.button("운세 풀이 ✨"):
             try:
                 model = genai.GenerativeModel(selected_model)
@@ -183,64 +204,4 @@ elif current_menu == "🏨 숙박/여행 비서":
         try:
             model = genai.GenerativeModel(selected_model)
             st.write(model.generate_content(f"'{dest}' 여행 숙소(호텔,펜션) 3곳 추천. 특징과 가격대.").text)
-            st.link_button("네이버 최저가 보기", f"https://search.naver.com/search.naver?query={dest} 숙소 추천")
-        except Exception as e:
-            st.error(f"오류: {e}")
-
-elif current_menu == "🚍 교통/예매 비서":
-    st.title("🚍 교통/예매 비서")
-    st.info("출발지와 도착지를 입력하면, AI가 여행 팁을 드리고 시간표 검색을 연결해 드립니다.")
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        departure = st.text_input("출발지", placeholder="예: 서울")
-        arrival = st.text_input("도착지", placeholder="예: 부산")
-    with col2:
-        transport_type = st.radio("교통 수단", ["KTX/열차", "고속버스/시외버스"], horizontal=True)
-        
-    if st.button("시간표 및 노선 확인 🔍"):
-        if departure and arrival:
-            try:
-                model = genai.GenerativeModel(selected_model)
-                with st.spinner("경로 분석 중..."):
-                    msg = model.generate_content(f"{departure}에서 {arrival}까지 {transport_type}로 이동할 때 걸리는 대략적인 시간과 70대 어르신을 위한 여행/건강 팁을 한 문단으로 짧게 알려줘.").text
-                    st.success("🤖 AI의 여행 조언")
-                    st.write(msg)
-                    
-                    st.markdown("---")
-                    st.subheader("🎫 실시간 시간표/예매 바로가기")
-                    
-                    query = f"{departure}에서 {arrival} {transport_type} 시간표"
-                    naver_url = f"https://search.naver.com/search.naver?query={query}"
-                    st.link_button(f"📅 네이버에서 '{query}' 실시간 확인", naver_url, use_container_width=True)
-                    
-                    c1, c2 = st.columns(2)
-                    with c1:
-                        st.link_button("🚆 레츠코레일 (기차 예매)", "https://www.letskorail.com", use_container_width=True)
-                    with c2:
-                        st.link_button("🚌 코버스 (고속버스 예매)", "https://www.kobus.co.kr", use_container_width=True)
-            except Exception as e:
-                st.error(f"오류가 발생했습니다: {e}")
-        else:
-            st.warning("출발지와 도착지를 모두 입력해주세요.")
-
-elif current_menu == "🏥 건강검진 비서":
-    st.title("🏥 건강검진 결과 해석")
-    h_data = st.text_area("결과표 내용 입력", height=150)
-    age = st.number_input("나이", value=60)
-    if st.button("분석하기") and h_data:
-        try:
-            model = genai.GenerativeModel(selected_model)
-            st.write(model.generate_content(f"의사로서 분석해줘. 나이:{age}, 데이터:{h_data}. 쉬운 설명과 조언.").text)
-        except Exception as e:
-            st.error(f"오류: {e}")
-
-elif current_menu == "👮‍♂️ 스팸/피싱 탐지관":
-    st.title("👮‍♂️ 스팸/피싱 탐지관")
-    msg = st.text_area("의심 문자 입력", height=150)
-    if st.button("사기 판별") and msg:
-        try:
-            model = genai.GenerativeModel(selected_model)
-            st.write(model.generate_content(f"사이버수사관으로서 분석해줘. 메시지:{msg}. 위험도와 대처법.").text)
-        except Exception as e:
-            st.error(f"오류: {e}")
+            st.link_button("네이버 최저가 보기", f"https://search.naver
