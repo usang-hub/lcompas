@@ -58,10 +58,9 @@ def get_all_stock_list():
 # --- 사이드바 ---
 with st.sidebar:
     st.title("🤖 AI 비서실")
-    # 메뉴 4개로 확장됨
     menu = st.radio("기능 선택", 
         ["🧭 인생 나침반", "💰 만능 자산 비서", "🥠 정통 사주 운세", "🍽️ 미식가 비서"], 
-        index=3 # 맛집 기능 바로 확인하시라고 기본 선택해둠
+        index=3 
     )
     st.markdown("---")
     selected_model = st.selectbox("사용 모델", ["gemini-2.0-flash-exp", "gemini-1.5-flash"], index=0)
@@ -99,7 +98,6 @@ elif "만능 자산 비서" in menu:
         st.subheader("🔍 종목 검색")
         stock_df = get_all_stock_list()
         
-        # 리스트 로딩 실패 시 수동 입력창 표시
         if stock_df.empty:
             st.warning("⚠ 목록 다운로드 지연. 코드를 입력하세요.")
             manual_input = st.text_input("종목코드 입력", value="005930")
@@ -174,7 +172,7 @@ elif "정통 사주 운세" in menu:
                     st.error(f"오류: {e}")
 
 # =========================================================
-# 기능 4: 미식가 비서 (신규 기능!)
+# 기능 4: 미식가 비서
 # =========================================================
 elif "미식가 비서" in menu:
     st.title("🍽️ 우리 동네 미식가 비서")
@@ -210,9 +208,29 @@ elif "미식가 비서" in menu:
                 
                 with st.spinner(f"AI가 '{location}'의 '{food_type}' 맛집을 찾는 중..."):
                     try:
+                        # [주의] 따옴표 3개(""")로 시작했으면 끝날 때도 꼭 3개로 닫아야 합니다!
                         prompt = f"""
                         당신은 맛집 전문 가이드입니다.
                         사용자가 '{location}' 지역에서 '{food_type}'을(를) 찾고 있습니다.
                         특별 요청: {option_str}
                         
-                        1
+                        1. 이 지역에서 평이 좋은 식당 3곳 추천.
+                        2. 각 식당의 특징, 대표 메뉴, 가격대 설명.
+                        3. 광고 없이 솔직한 느낌으로 추천.
+                        """
+                        
+                        res = model.generate_content(prompt)
+                        
+                        st.markdown(f"### 🍴 {location} 추천 맛집")
+                        st.write(res.text)
+                        
+                        st.markdown("---")
+                        # 네이버 검색 버튼 생성
+                        query = f"{location} {food_type} 맛집"
+                        naver_url = f"https://search.naver.com/search.naver?query={query}"
+                        
+                        st.success("AI 추천이 마음에 드시나요? 실제 후기를 확인해보세요!")
+                        st.link_button(f"🟢 네이버에서 '{query}' 실제 후기 보기", naver_url)
+                        
+                    except Exception as e:
+                        st.error("맛집을 찾는 도중 문제가 발생했습니다.")
