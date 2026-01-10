@@ -71,9 +71,9 @@ with st.sidebar:
 
     st.markdown("---")
     
-    # [수정됨] 모델 선택 기능 부활! (에러 방지용)
+    # [핵심 수정] 에러 안 나는 'gemini-pro'를 1순위(기본값)로 변경!
     st.caption("⚙️ 설정")
-    selected_model = st.selectbox("AI 모델 선택", ["gemini-1.5-flash", "gemini-pro"], index=0)
+    selected_model = st.selectbox("AI 모델 선택", ["gemini-pro", "gemini-1.5-flash"], index=0)
     
     api_key = None
     if "GOOGLE_API_KEY" in st.secrets:
@@ -93,10 +93,12 @@ if current_menu == "🧭 인생 나침반":
     st.title("🧭 인생 나침반")
     worry = st.text_area("고민을 털어놓으세요", height=150)
     if st.button("조언 듣기") and worry:
-        # [수정] selected_model 변수 사용
-        model = genai.GenerativeModel(selected_model)
-        with st.spinner("생각 중..."):
-            st.write(model.generate_content(f"70대 멘토로서 답변: {worry}").text)
+        try:
+            model = genai.GenerativeModel(selected_model)
+            with st.spinner("생각 중..."):
+                st.write(model.generate_content(f"70대 멘토로서 답변: {worry}").text)
+        except Exception as e:
+            st.error(f"오류: {e}")
 
 elif current_menu == "💰 만능 자산 비서":
     st.title("💰 만능 투자 분석 비서")
@@ -134,79 +136,38 @@ elif current_menu == "🥠 정통 사주 운세":
         gender = st.radio("성별", ["남성", "여성"], horizontal=True)
         b_time = st.time_input("태어난 시간", value=datetime.strptime("04:15", "%H:%M").time())
         if st.button("운세 풀이 ✨"):
-            model = genai.GenerativeModel(selected_model)
-            ganji, _ = get_ganji(b_date.year, b_date.month, b_date.day, "", (cal_type=="음력"), is_leap)
-            st.success(f"사주: {ganji}")
-            st.write(model.generate_content(f"명리학자로서 {b_date}({cal_type}), {gender}, {b_time}, 사주:{ganji}인 사람의 기질과 2026년 운세, 조언을 해주세요.").text)
+            try:
+                model = genai.GenerativeModel(selected_model)
+                ganji, _ = get_ganji(b_date.year, b_date.month, b_date.day, "", (cal_type=="음력"), is_leap)
+                st.success(f"사주: {ganji}")
+                st.write(model.generate_content(f"명리학자로서 {b_date}({cal_type}), {gender}, {b_time}, 사주:{ganji}인 사람의 기질과 2026년 운세, 조언을 해주세요.").text)
+            except Exception as e:
+                st.error(f"오류: {e}")
 
 elif current_menu == "🍽️ 미식가 비서":
     st.title("🍽️ 미식가 비서")
     loc = st.text_input("지역 (예: 종로3가)")
     menu = st.text_input("메뉴 (예: 한정식)")
     if st.button("맛집 찾기") and loc and menu:
-        model = genai.GenerativeModel(selected_model)
-        res = model.generate_content(f"'{loc}'의 '{menu}' 맛집 3곳 추천. 특징, 가격대 설명.").text
-        st.write(res)
-        st.link_button("네이버 후기 보기", f"https://search.naver.com/search.naver?query={loc} {menu} 맛집")
+        try:
+            model = genai.GenerativeModel(selected_model)
+            res = model.generate_content(f"'{loc}'의 '{menu}' 맛집 3곳 추천. 특징, 가격대 설명.").text
+            st.write(res)
+            st.link_button("네이버 후기 보기", f"https://search.naver.com/search.naver?query={loc} {menu} 맛집")
+        except Exception as e:
+            st.error(f"오류: {e}")
 
 elif current_menu == "🏨 숙박/여행 비서":
     st.title("🏨 숙박/여행 비서")
     dest = st.text_input("여행지 (예: 속초)")
     if st.button("숙소 추천") and dest:
-        model = genai.GenerativeModel(selected_model)
-        st.write(model.generate_content(f"'{dest}' 여행 숙소(호텔,펜션) 3곳 추천. 특징과 가격대.").text)
-        st.link_button("네이버 최저가 보기", f"https://search.naver.com/search.naver?query={dest} 숙소 추천")
+        try:
+            model = genai.GenerativeModel(selected_model)
+            st.write(model.generate_content(f"'{dest}' 여행 숙소(호텔,펜션) 3곳 추천. 특징과 가격대.").text)
+            st.link_button("네이버 최저가 보기", f"https://search.naver.com/search.naver?query={dest} 숙소 추천")
+        except Exception as e:
+            st.error(f"오류: {e}")
 
 elif current_menu == "🚍 교통/예매 비서":
     st.title("🚍 교통/예매 비서")
-    st.info("출발지와 도착지를 입력하면, AI가 여행 팁을 드리고 시간표 검색을 연결해 드립니다.")
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        departure = st.text_input("출발지", placeholder="예: 서울")
-        arrival = st.text_input("도착지", placeholder="예: 부산")
-    with col2:
-        transport_type = st.radio("교통 수단", ["KTX/열차", "고속버스/시외버스"], horizontal=True)
-        
-    if st.button("시간표 및 노선 확인 🔍"):
-        if departure and arrival:
-            # [수정] 여기서 에러가 났었습니다. selected_model로 교체 완료!
-            model = genai.GenerativeModel(selected_model)
-            with st.spinner("경로 분석 중..."):
-                try:
-                    msg = model.generate_content(f"{departure}에서 {arrival}까지 {transport_type}로 이동할 때 걸리는 대략적인 시간과 70대 어르신을 위한 여행/건강 팁을 한 문단으로 짧게 알려줘.").text
-                    st.success("🤖 AI의 여행 조언")
-                    st.write(msg)
-                except Exception as e:
-                    st.error(f"오류가 발생했습니다: {e}")
-                    st.caption("사이드바에서 AI 모델을 'gemini-pro'로 변경해보세요.")
-                
-                st.markdown("---")
-                st.subheader("🎫 실시간 시간표/예매 바로가기")
-                
-                query = f"{departure}에서 {arrival} {transport_type} 시간표"
-                naver_url = f"https://search.naver.com/search.naver?query={query}"
-                st.link_button(f"📅 네이버에서 '{query}' 실시간 확인", naver_url, use_container_width=True)
-                
-                c1, c2 = st.columns(2)
-                with c1:
-                    st.link_button("🚆 레츠코레일 (기차 예매)", "https://www.letskorail.com", use_container_width=True)
-                with c2:
-                    st.link_button("🚌 코버스 (고속버스 예매)", "https://www.kobus.co.kr", use_container_width=True)
-        else:
-            st.warning("출발지와 도착지를 모두 입력해주세요.")
-
-elif current_menu == "🏥 건강검진 비서":
-    st.title("🏥 건강검진 결과 해석")
-    h_data = st.text_area("결과표 내용 입력", height=150)
-    age = st.number_input("나이", value=60)
-    if st.button("분석하기") and h_data:
-        model = genai.GenerativeModel(selected_model)
-        st.write(model.generate_content(f"의사로서 분석해줘. 나이:{age}, 데이터:{h_data}. 쉬운 설명과 조언.").text)
-
-elif current_menu == "👮‍♂️ 스팸/피싱 탐지관":
-    st.title("👮‍♂️ 스팸/피싱 탐지관")
-    msg = st.text_area("의심 문자 입력", height=150)
-    if st.button("사기 판별") and msg:
-        model = genai.GenerativeModel(selected_model)
-        st.write(model.generate_content(f"사이버수사관으로서 분석해줘. 메시지:{msg}. 위험도와 대처법.").text)
+    st.info("출발지와 도착지를 입력하면, AI가 여행 팁을 드리고
