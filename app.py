@@ -8,7 +8,7 @@ from korean_lunar_calendar import KoreanLunarCalendar
 # 1. 페이지 설정
 st.set_page_config(page_title="나만의 AI 비서", page_icon="🤖", layout="wide")
 
-# 2. [함수] 만세력 및 주식 데이터 (비상용 목록 추가!)
+# 2. [함수] 만세력 및 주식 데이터 (비상용 목록 포함)
 def get_ganji(year, month, day, hour_str, is_lunar=False, is_leap=False):
     calendar = KoreanLunarCalendar()
     if is_lunar:
@@ -50,7 +50,7 @@ def get_all_stock_list():
         df['Display'] = df['Name'] + " (" + df['Code'] + ")"
         return df
     except:
-        # [핵심 수정] 다운로드 실패 시 사용할 '비상용 인기 종목 리스트'
+        # 다운로드 실패 시 사용할 '비상용 인기 종목 리스트'
         data = {
             'Name': ['삼성전자', 'SK하이닉스', 'LG에너지솔루션', '삼성바이오로직스', '현대차', '기아', 'POSCO홀딩스', 'NAVER', '카카오', '셀트리온'],
             'Code': ['005930', '000660', '373220', '207940', '005380', '000270', '005490', '035420', '035720', '068270']
@@ -124,14 +124,11 @@ elif current_menu == "💰 만능 자산 비서":
     st.title("💰 만능 투자 분석 비서")
     col1, col2 = st.columns([1, 2])
     
-    # [수정] 주식 리스트 로직 강화
     with col1:
         stock_df = get_all_stock_list()
         
-        # 목록이 있으면 선택 상자를 보여줌
         if not stock_df.empty:
             stock_list = stock_df['Display'].tolist()
-            # 삼성전자가 리스트에 있으면 기본값으로 잡기
             default_idx = 0
             for i, s in enumerate(stock_list):
                 if "삼성전자" in s:
@@ -142,7 +139,6 @@ elif current_menu == "💰 만능 자산 비서":
             selected_name = selected_item.split(' (')[0]
             final_code = selected_item.split('(')[-1].replace(')', '')
         
-        # 만약 정말로 목록이 텅 비었으면 수동 입력 (안내 문구 강화)
         else:
             st.warning("종목 목록을 불러오지 못했습니다.")
             manual_input = st.text_input("종목코드 입력 (예: 005930)", value="005930")
@@ -154,7 +150,6 @@ elif current_menu == "💰 만능 자산 비서":
     with col2:
         if btn:
             try:
-                # 데이터 가져오기
                 df = fdr.DataReader(final_code, datetime.now() - timedelta(days=100))
                 if not df.empty:
                     st.line_chart(df['Close'])
@@ -178,30 +173,4 @@ elif current_menu == "🥠 정통 사주 운세":
         if st.button("운세 풀이 ✨"):
             try:
                 model = genai.GenerativeModel(selected_model)
-                ganji, _ = get_ganji(b_date.year, b_date.month, b_date.day, "", (cal_type=="음력"), is_leap)
-                st.success(f"사주: {ganji}")
-                st.write(model.generate_content(f"명리학자로서 {b_date}({cal_type}), {gender}, {b_time}, 사주:{ganji}인 사람의 기질과 2026년 운세, 조언을 해주세요.").text)
-            except Exception as e:
-                st.error(f"오류: {e}")
-
-elif current_menu == "🍽️ 미식가 비서":
-    st.title("🍽️ 미식가 비서")
-    loc = st.text_input("지역 (예: 종로3가)")
-    menu = st.text_input("메뉴 (예: 한정식)")
-    if st.button("맛집 찾기") and loc and menu:
-        try:
-            model = genai.GenerativeModel(selected_model)
-            res = model.generate_content(f"'{loc}'의 '{menu}' 맛집 3곳 추천. 특징, 가격대 설명.").text
-            st.write(res)
-            st.link_button("네이버 후기 보기", f"https://search.naver.com/search.naver?query={loc} {menu} 맛집")
-        except Exception as e:
-            st.error(f"오류: {e}")
-
-elif current_menu == "🏨 숙박/여행 비서":
-    st.title("🏨 숙박/여행 비서")
-    dest = st.text_input("여행지 (예: 속초)")
-    if st.button("숙소 추천") and dest:
-        try:
-            model = genai.GenerativeModel(selected_model)
-            st.write(model.generate_content(f"'{dest}' 여행 숙소(호텔,펜션) 3곳 추천. 특징과 가격대.").text)
-            st.link_button("네이버 최저가 보기", f"https://search.naver
+                ganji, _ = get_
