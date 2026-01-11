@@ -106,12 +106,12 @@ with st.sidebar:
     selected_model = st.selectbox("AI 모델 선택", available_models, index=0)
 
 # =========================================================
-# 화면 표시 로직 (여기가 가장 중요합니다!)
+# 화면 표시 로직
 # =========================================================
 
 # 1. 인생 나침반
 if current_menu == "🧭 인생 나침반":
-    st.title("🧭 인생 나침반")  # 이 줄이 반드시 if 안으로 들어와 있어야 합니다!
+    st.title("🧭 인생 나침반")
     worry = st.text_area("고민을 털어놓으세요", height=150)
     if st.button("조언 듣기") and worry:
         try:
@@ -202,4 +202,68 @@ elif current_menu == "🏨 숙박/여행 비서":
     if st.button("숙소 추천") and dest:
         try:
             model = genai.GenerativeModel(selected_model)
-            st.write(model.generate_content(f"'{dest}'
+            # [수정] 여기가 잘렸던 부분입니다. 한 줄로 잇고 괄호를 닫았습니다.
+            st.write(model.generate_content(f"'{dest}' 여행 숙소(호텔,펜션) 3곳 추천. 특징과 가격대.").text)
+            st.link_button("네이버 최저가 보기", f"https://search.naver.com/search.naver?query={dest} 숙소 추천")
+        except Exception as e:
+            st.error(f"오류: {e}")
+
+# 6. 교통/예매 비서
+elif current_menu == "🚍 교통/예매 비서":
+    st.title("🚍 교통/예매 비서")
+    st.info("출발지와 도착지를 입력하면, AI가 여행 팁을 드리고 시간표 검색을 연결해 드립니다.")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        departure = st.text_input("출발지", placeholder="예: 서울")
+        arrival = st.text_input("도착지", placeholder="예: 부산")
+    with col2:
+        transport_type = st.radio("교통 수단", ["KTX/열차", "고속버스/시외버스"], horizontal=True)
+        
+    if st.button("시간표 및 노선 확인 🔍"):
+        if departure and arrival:
+            try:
+                model = genai.GenerativeModel(selected_model)
+                with st.spinner("경로 분석 중..."):
+                    msg = model.generate_content(f"{departure}에서 {arrival}까지 {transport_type}로 이동할 때 걸리는 대략적인 시간과 70대 어르신을 위한 여행/건강 팁을 한 문단으로 짧게 알려줘.").text
+                    st.success("🤖 AI의 여행 조언")
+                    st.write(msg)
+                    
+                    st.markdown("---")
+                    st.subheader("🎫 실시간 시간표/예매 바로가기")
+                    
+                    query = f"{departure}에서 {arrival} {transport_type} 시간표"
+                    naver_url = f"https://search.naver.com/search.naver?query={query}"
+                    st.link_button(f"📅 네이버에서 '{query}' 실시간 확인", naver_url, use_container_width=True)
+                    
+                    c1, c2 = st.columns(2)
+                    with c1:
+                        st.link_button("🚆 레츠코레일 (기차 예매)", "https://www.letskorail.com", use_container_width=True)
+                    with c2:
+                        st.link_button("🚌 코버스 (고속버스 예매)", "https://www.kobus.co.kr", use_container_width=True)
+            except Exception as e:
+                st.error(f"오류가 발생했습니다: {e}")
+        else:
+            st.warning("출발지와 도착지를 모두 입력해주세요.")
+
+# 7. 건강검진 비서
+elif current_menu == "🏥 건강검진 비서":
+    st.title("🏥 건강검진 결과 해석")
+    h_data = st.text_area("결과표 내용 입력", height=150)
+    age = st.number_input("나이", value=60)
+    if st.button("분석하기") and h_data:
+        try:
+            model = genai.GenerativeModel(selected_model)
+            st.write(model.generate_content(f"의사로서 분석해줘. 나이:{age}, 데이터:{h_data}. 쉬운 설명과 조언.").text)
+        except Exception as e:
+            st.error(f"오류: {e}")
+
+# 8. 스팸 탐지관
+elif current_menu == "👮‍♂️ 스팸/피싱 탐지관":
+    st.title("👮‍♂️ 스팸/피싱 탐지관")
+    msg = st.text_area("의심 문자 입력", height=150)
+    if st.button("사기 판별") and msg:
+        try:
+            model = genai.GenerativeModel(selected_model)
+            st.write(model.generate_content(f"사이버수사관으로서 분석해줘. 메시지:{msg}. 위험도와 대처법.").text)
+        except Exception as e:
