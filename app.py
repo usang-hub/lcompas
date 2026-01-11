@@ -202,7 +202,6 @@ elif current_menu == "🏨 숙박/여행 비서":
     if st.button("숙소 추천") and dest:
         try:
             model = genai.GenerativeModel(selected_model)
-            # [수정] 여기가 잘렸던 부분입니다. 한 줄로 잇고 괄호를 닫았습니다.
             st.write(model.generate_content(f"'{dest}' 여행 숙소(호텔,펜션) 3곳 추천. 특징과 가격대.").text)
             st.link_button("네이버 최저가 보기", f"https://search.naver.com/search.naver?query={dest} 숙소 추천")
         except Exception as e:
@@ -267,3 +266,4 @@ elif current_menu == "👮‍♂️ 스팸/피싱 탐지관":
             model = genai.GenerativeModel(selected_model)
             st.write(model.generate_content(f"사이버수사관으로서 분석해줘. 메시지:{msg}. 위험도와 대처법.").text)
         except Exception as e:
+            st.error(f"오류: {e}")
